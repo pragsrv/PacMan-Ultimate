@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>PAC-MAN</title>
+  <style>
+    body {
+      margin: 0;
+      background: black;
+      color: white;
+      font-family: 'Segoe UI', sans-serif;
+      text-align: center;
+    }
+
+    h1 {
+      margin: 20px;
+      color: yellow;
+    }
+
+    #score-board {
+      margin-bottom: 10px;
+      font-size: 20px;
+    }
+
+    #game {
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(20, 25px);
+      grid-template-rows: repeat(20, 25px);
+      gap: 1px;
+      background: #222;
+    }
+
+    .cell {
+      width: 25px;
+      height: 25px;
+    }
+
+    .wall {
+      background: #0033cc;
+    }
+
+    .pellet {
+      background: #fff;
+      border-radius: 50%;
+      width: 6px;
+      height: 6px;
+      margin: auto;
+    }
+
+    .power-pellet {
+      background: #ff69b4;
+      border-radius: 50%;
+      width: 12px;
+      height: 12px;
+      margin: auto;
+    }
+
+    .pacman {
+      background: yellow;
+      border-radius: 50%;
+    }
+
+    .ghost {
+      background: red;
+      border-radius: 50%;
+    }
+
+    .scared {
+      background: lightblue !important;
+    }
+  </style>
+</head>
+<body>
+  <h1>PAC-MAN</h1>
+  <div id="score-board">Score: <span id="score">0</span> | Lives: <span id="lives">3</span></div>
+  <div id="game"></div>
+
+  <script>
+    const game = document.getElementById('game');
+    const scoreDisplay = document.getElementById('score');
+    const livesDisplay = document.getElementById('lives');
+    let score = 0;
+    let lives = 3;
+
+    const layout = [
+      // 0: pellet, 1: wall, 2: ghost-lair, 3: power-pellet, 4: empty
+      1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+      1,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,
+      1,0,1,1,1,1,0,1,0,1,1,1,0,1,0,1,1,1,0,1,
+      1,3,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,3,1,
+      1,0,1,0,1,1,0,1,0,1,0,1,0,1,0,1,1,1,0,1,
+      1,0,0,0,1,0,0,1,0,0,0,1,0,1,0,0,0,0,0,1,
+      1,0,1,0,1,0,1,1,1,1,1,1,0,1,0,1,0,1,0,1,
+      1,0,1,0,0,0,0,0,0,2,0,0,0,0,0,1,0,1,0,1,
+      1,0,1,0,1,1,1,1,0,2,0,1,1,1,0,1,0,1,0,1,
+      1,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,1,
+      1,0,1,1,1,1,1,1,0,2,0,1,1,1,1,1,1,1,0,1,
+      1,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,1,
+      1,0,1,1,1,1,0,1,0,1,1,1,0,1,1,1,1,1,0,1,
+      1,3,1,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1,3,1,
+      1,0,1,0,1,1,0,1,1,1,1,1,0,1,0,1,0,1,0,1,
+      1,0,0,0,0,0,0,1,0,0,0,1,0,1,0,0,0,0,0,1,
+      1,0,1,1,1,1,0,1,0,1,0,1,0,1,0,1,1,1,0,1,
+      1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,
+      1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+    ];
+
+    const width = 20;
+    const cells = [];
+
+    function createBoard() {
+      for (let i = 0; i < layout.length; i++) {
+        const cell = document.createElement('div');
+        cell.classList.add('cell');
+
+        switch(layout[i]) {
+          case 0:
+            cell.classList.add('pellet');
+            break;
+          case 1:
+            cell.classList.add('wall');
+            break;
+          case 2:
+            // ghost lair
+            break;
+          case 3:
+            cell.classList.add('power-pellet');
+            break;
+        }
+
+        game.appendChild(cell);
+        cells.push(cell);
+      }
+    }
+
+    createBoard();
+
+    let pacmanIndex = 229;
+    cells[pacmanIndex].classList.add('pacman');
+
+    let ghosts = [
+      { index: 209, direction: 1, timerId: null, scared: false },
+      { index: 210, direction: -1, timerId: null, scared: false },
+    ];
+
+    ghosts.forEach(ghost => {
+      cells[ghost.index].classList.add('ghost');
+    });
+
+    function movePacman(e) {
+      cells[pacmanIndex].classList.remove('pacman');
+
+      let next = pacmanIndex;
+      if (e.key === 'ArrowLeft' && !cells[pacmanIndex - 1].classList.contains('wall')) next -= 1;
+      if (e.key === 'ArrowRight' && !cells[pacmanIndex + 1].classList.contains('wall')) next += 1;
+      if (e.key === 'ArrowUp' && !cells[pacmanIndex - width].classList.contains('wall')) next -= width;
+      if (e.key === 'ArrowDown' && !cells[pacmanIndex + width].classList.contains('wall')) next += width;
+
+      pacmanIndex = next;
+
+      // Eat pellet
+      if (cells[pacmanIndex].classList.contains('pellet')) {
+        score += 10;
+        cells[pacmanIndex].classList.remove('pellet');
+      }
+
+      // Eat power pellet
+      if (cells[pacmanIndex].classList.contains('power-pellet')) {
+        score += 50;
+        cells[pacmanIndex].classList.remove('power-pellet');
+        ghosts.forEach(g => g.scared = true);
+        setTimeout(() => ghosts.forEach(g => g.scared = false), 5000);
+      }
+
+      scoreDisplay.textContent = score;
+      cells[pacmanIndex].classList.add('pacman');
+
+      checkGameOver();
+    }
+
+    document.addEventListener('keydown', movePacman);
+
+    function moveGhost(ghost) {
+      const directions = [-1, +1, -width, +width];
+
+      ghost.timerId = setInterval(() => {
+        const dir = directions[Math.floor(Math.random() * directions.length)];
+        const nextIndex = ghost.index + dir;
+
+        if (!cells[nextIndex].classList.contains('wall') && !cells[nextIndex].classList.contains('ghost')) {
+          cells[ghost.index].classList.remove('ghost', 'scared');
+          ghost.index = nextIndex;
+          cells[ghost.index].classList.add('ghost');
+          if (ghost.scared) cells[ghost.index].classList.add('scared');
+
+          // Collision
+          if (ghost.index === pacmanIndex) {
+            if (ghost.scared) {
+              cells[ghost.index].classList.remove('ghost', 'scared');
+              ghost.index = 209;
+              score += 100;
+            } else {
+              loseLife();
+            }
+          }
+        }
+      }, 500);
+    }
+
+    function loseLife() {
+      lives--;
+      livesDisplay.textContent = lives;
+      if (lives === 0) {
+        endGame("Game Over!");
+      } else {
+        cells[pacmanIndex].classList.remove('pacman');
+        pacmanIndex = 229;
+        cells[pacmanIndex].classList.add('pacman');
+      }
+    }
+
+    function checkGameOver() {
+      if (score >= 1000) endGame("You Win!");
+    }
+
+    function endGame(message) {
+      ghosts.forEach(g => clearInterval(g.timerId));
+      document.removeEventListener('keydown', movePacman);
+      alert(message);
+    }
+
+    ghosts.forEach(moveGhost);
+  </script>
+</body>
+</html>
